@@ -26,6 +26,7 @@ function MatchState.new()
 	self.TimeRemaining = MatchConfig.RegulationSeconds
 	self.CountdownRemaining = 0
 	self.GoalPauseRemaining = 0
+	self.ResultRemaining = 0
 	self.Overtime = false
 	self.Winner = nil :: TeamName?
 	return self
@@ -37,6 +38,7 @@ function MatchState:start()
 	self.TimeRemaining = MatchConfig.RegulationSeconds
 	self.CountdownRemaining = MatchConfig.CountdownSeconds
 	self.GoalPauseRemaining = 0
+	self.ResultRemaining = 0
 	self.Overtime = false
 	self.Winner = nil
 	self.State = "Countdown"
@@ -55,6 +57,7 @@ function MatchState:goal(team: TeamName): boolean
 
 	if self.State == "Overtime" then
 		self.Winner = team
+		self.ResultRemaining = MatchConfig.ResultSeconds
 		self.State = "Finished"
 		return true
 	end
@@ -89,8 +92,14 @@ function MatchState:tick(dt: number)
 				self.State = "Countdown"
 			else
 				self.Winner = if self.BlueScore > self.RedScore then "Blue" else "Red"
+				self.ResultRemaining = MatchConfig.ResultSeconds
 				self.State = "Finished"
 			end
+		end
+	elseif self.State == "Finished" then
+		self.ResultRemaining = math.max(0, self.ResultRemaining - dt)
+		if self.ResultRemaining <= 0 then
+			self.State = "Waiting"
 		end
 	end
 end
