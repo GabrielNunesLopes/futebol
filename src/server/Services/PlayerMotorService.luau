@@ -17,6 +17,7 @@ local sequences: { [Player]: number } = {}
 local accumulator = 0
 local snapshotAccumulator = 0
 local running = false
+local frozenState = true
 
 local function sanitizeInput(value: any): Vector3?
 	if typeof(value) ~= "Vector3" then
@@ -54,7 +55,8 @@ local function stepPlayers(dt: number)
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") then
 			local current = VectorMath.flattenXZ(root.AssemblyLinearVelocity)
-			local nextVelocity = MovementMath.stepVelocity(current, intents[player] or Vector3.zero, dt)
+			local intended = if frozenState then Vector3.zero else intents[player] or Vector3.zero
+			local nextVelocity = MovementMath.stepVelocity(current, intended, dt)
 			root.AssemblyLinearVelocity = Vector3.new(nextVelocity.X, root.AssemblyLinearVelocity.Y, nextVelocity.Z)
 		end
 	end
@@ -130,11 +132,13 @@ function PlayerMotorService.start()
 end
 
 function PlayerMotorService.freezeAll(frozen: boolean)
-	for _, player in ipairs(Players:GetPlayers()) do
-		intents[player] = if frozen then Vector3.zero else intents[player] or Vector3.zero
-		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-		if frozen and root and root:IsA("BasePart") then
-			root.AssemblyLinearVelocity = Vector3.zero
+	frozenState = frozen
+	if frozen then
+		for _, player in ipairs(Players:GetPlayers()) do
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			if root and root:IsA("BasePart") then
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
 		end
 	end
 end
