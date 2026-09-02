@@ -27,12 +27,15 @@ KickService.start()
 GoalService.start(arena, MatchService.registerGoal)
 
 local function tryStartMatch()
-	if not MatchService.isActive() then
+	if not MatchService.hasMatch() then
 		MatchService.tryStartFromServer()
 	end
 end
 
 Players.PlayerAdded:Connect(function()
+	task.delay(1, tryStartMatch)
+end)
+Players.PlayerRemoving:Connect(function()
 	task.delay(1, tryStartMatch)
 end)
 
