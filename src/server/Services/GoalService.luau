@@ -11,7 +11,7 @@ local GoalService = {}
 
 local connection: RBXScriptConnection? = nil
 
-function GoalService.start(arena: FieldService.ArenaRefs, onGoal: ("Blue" | "Red") -> ())
+function GoalService.start(arena: FieldService.ArenaRefs, onGoal: ("Blue" | "Red", number?) -> ())
 	if connection then
 		connection:Disconnect()
 	end
@@ -29,10 +29,10 @@ function GoalService.start(arena: FieldService.ArenaRefs, onGoal: ("Blue" | "Red
 			if armed and insideMouth then
 				if previous.X <= arena.HalfLength and current.X > arena.HalfLength then
 					armed = false
-					onGoal("Blue")
+					onGoal("Blue", BallService.getLastTouch())
 				elseif previous.X >= -arena.HalfLength and current.X < -arena.HalfLength then
 					armed = false
-					onGoal("Red")
+					onGoal("Red", BallService.getLastTouch())
 				end
 			end
 
