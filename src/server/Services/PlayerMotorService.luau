@@ -39,6 +39,8 @@ local function setupCharacter(player: Player, character: Model)
 		humanoid.WalkSpeed = 0
 		humanoid.AutoRotate = false
 		humanoid.JumpPower = 0
+		humanoid.JumpHeight = 0
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
 	end
 	if root and root:IsA("BasePart") then
 		pcall(function()
