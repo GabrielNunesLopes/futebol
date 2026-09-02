@@ -9,6 +9,7 @@ return {
 		Acceleration = 115,
 		Deceleration = 145,
 		ReverseAcceleration = 92,
+		Radius = 2.35,
 	},
 
 	Ball = {
@@ -16,6 +17,7 @@ return {
 		Friction = 3.2,
 		Restitution = 0.86,
 		Radius = 1.35,
+		BodyPushFactor = 0.9,
 	},
 
 	Kick = {
@@ -24,5 +26,6 @@ return {
 		Cooldown = 0.18,
 		AimBlend = 0.35,
 		MomentumContribution = 0.42,
+		ExistingBallVelocityRetention = 0.16,
 	},
 }
