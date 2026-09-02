@@ -24,6 +24,16 @@ local function isActivePlayer(player: Player): boolean
 	return table.find(activePlayers, player) ~= nil
 end
 
+local function clearAssignments()
+	for _, player in ipairs(activePlayers) do
+		if player.Parent == Players then
+			player:SetAttribute("CompetitiveTeam", nil)
+		end
+	end
+	activePlayers = {}
+	playerGoals = {}
+end
+
 local function assignPlayers(players: { Player })
 	table.sort(players, function(a, b)
 		return a.UserId < b.UserId
@@ -77,7 +87,14 @@ local function handleTransition(fromState: string, toState: string)
 		resetPositions()
 	elseif toState == "Playing" or toState == "Overtime" then
 		PlayerMotorService.freezeAll(false)
-	elseif toState == "Finished" or toState == "Waiting" or toState == "GoalPause" then
+	elseif toState == "Waiting" then
+		PlayerMotorService.freezeAll(true)
+		clearAssignments()
+		local currentArena = arena
+		if currentArena then
+			BallService.reset(currentArena.Center)
+		end
+	elseif toState == "Finished" or toState == "GoalPause" then
 		PlayerMotorService.freezeAll(true)
 	end
 
@@ -85,13 +102,7 @@ local function handleTransition(fromState: string, toState: string)
 end
 
 local function stopToWaiting()
-	for _, player in ipairs(activePlayers) do
-		if player.Parent == Players then
-			player:SetAttribute("CompetitiveTeam", nil)
-		end
-	end
-	activePlayers = {}
-	playerGoals = {}
+	clearAssignments()
 	machine = MatchState.new()
 	previousState = machine.State
 	PlayerMotorService.freezeAll(true)
@@ -148,7 +159,7 @@ function MatchService.isActive(): boolean
 end
 
 function MatchService.hasMatch(): boolean
-	return machine.State ~= "Waiting" and machine.State ~= "Finished"
+	return machine.State ~= "Waiting"
 end
 
 function MatchService.startLoop()
@@ -168,6 +179,9 @@ function MatchService.startLoop()
 		machine:tick(dt)
 		if before ~= machine.State then
 			handleTransition(before, machine.State)
+			if machine.State == "Waiting" then
+				task.defer(MatchService.tryStartFromServer)
+			end
 		end
 		previousState = machine.State
 
