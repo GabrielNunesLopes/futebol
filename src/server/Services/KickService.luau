@@ -13,6 +13,7 @@ local BallService = require(script.Parent.BallService)
 local KickService = {}
 
 local lastKickAt: { [Player]: number } = {}
+local lastSequence: { [Player]: number } = {}
 local activeProvider: (() -> boolean)? = nil
 local running = false
 
@@ -34,16 +35,21 @@ function KickService.start()
 	running = true
 
 	local remote = Remotes.getOrCreate("KickRequest")
-	remote.OnServerEvent:Connect(function(player: Player, aimDirection: any, _sequence: any)
+	remote.OnServerEvent:Connect(function(player: Player, aimDirection: any, sequence: any)
 		if not RateLimitService.allow(player.UserId, "KickRequest", 5, 10) then
 			return
 		end
 		if activeProvider and not activeProvider() then
 			return
 		end
-		if not isFiniteVector3(aimDirection) then
+		if not isFiniteVector3(aimDirection) or typeof(sequence) ~= "number" or sequence % 1 ~= 0 then
 			return
 		end
+		local previousSequence = lastSequence[player] or 0
+		if sequence <= previousSequence or sequence > previousSequence + 10000 then
+			return
+		end
+		lastSequence[player] = sequence
 
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if not root or not root:IsA("BasePart") then
@@ -70,11 +76,14 @@ function KickService.start()
 			VectorMath.safeUnitXZ(aimDirection),
 			PhysicsConfig.Kick.Power
 		)
-		BallService.setVelocity(kickVelocity)
+		local retainedBallVelocity = BallService.getVelocity() * PhysicsConfig.Kick.ExistingBallVelocityRetention
+		BallService.setVelocity(kickVelocity + retainedBallVelocity)
+		BallService.setLastTouch(player.UserId)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastKickAt[player] = nil
+		lastSequence[player] = nil
 	end)
 end
 
