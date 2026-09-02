@@ -16,6 +16,7 @@ local sendAccumulator = 0
 local lastIntent = Vector3.zero
 local controls: any = nil
 local running = false
+local matchActive = false
 
 local function getControls()
 	if controls then
@@ -51,6 +52,14 @@ function MovementController.start()
 
 	local inputRemote = Remotes.get("InputFrame")
 	local snapshotRemote = Remotes.get("PlayerSnapshot")
+	local matchRemote = Remotes.get("MatchSnapshot")
+
+	matchRemote.OnClientEvent:Connect(function(snapshot: any)
+		if typeof(snapshot) == "table" then
+			local state = snapshot.State
+			matchActive = state == "Playing" or state == "Overtime"
+		end
+	end)
 
 	snapshotRemote.OnClientEvent:Connect(function(serverPosition: any, serverVelocity: any, acknowledgedSequence: any)
 		if typeof(serverPosition) ~= "Vector3" or typeof(serverVelocity) ~= "Vector3" or typeof(acknowledgedSequence) ~= "number" then
@@ -61,17 +70,21 @@ function MovementController.start()
 			return
 		end
 		local errorDistance = (root.Position - serverPosition).Magnitude
+		local orientation = root.CFrame - root.CFrame.Position
 		if errorDistance > 7 then
-			root.CFrame = CFrame.new(serverPosition) * (root.CFrame - root.CFrame.Position)
+			root.CFrame = CFrame.new(serverPosition) * orientation
 		elseif errorDistance > 0.35 then
-			root.CFrame = root.CFrame:Lerp(CFrame.new(serverPosition) * (root.CFrame - root.CFrame.Position), 0.18)
+			root.CFrame = root.CFrame:Lerp(CFrame.new(serverPosition) * orientation, 0.18)
 		end
 		root.AssemblyLinearVelocity = serverVelocity
 	end)
 
 	RunService.RenderStepped:Connect(function(dt)
-		local moveVector = getControls():GetMoveVector()
-		lastIntent = cameraRelativeIntent(moveVector)
+		if matchActive then
+			lastIntent = cameraRelativeIntent(getControls():GetMoveVector())
+		else
+			lastIntent = Vector3.zero
+		end
 
 		local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") then
