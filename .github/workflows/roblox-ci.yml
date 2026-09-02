@@ -1,0 +1,29 @@
+name: Roblox CI
+
+on:
+  push:
+    branches:
+      - main
+      - feat/roblox-mvp-1v1
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Rokit
+        uses: paradoxum-games/setup-rokit@v3
+        with:
+          cache: true
+
+      - name: Install Wally packages
+        run: wally install
+
+      - name: Build production place
+        run: rojo build default.project.json -o futebol.rbxlx
+
+      - name: Build test place
+        run: rojo build test.project.json -o futebol-tests.rbxlx
