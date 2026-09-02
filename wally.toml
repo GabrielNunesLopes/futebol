@@ -1,0 +1,11 @@
+[package]
+name = "gabrielnuneslopes/futebol-competitive"
+description = "Competitive Roblox football MVP"
+version = "0.1.0"
+license = "MIT"
+realm = "shared"
+
+[dependencies]
+
+[dev-dependencies]
+TestEZ = "roblox/testez@0.4.1"
