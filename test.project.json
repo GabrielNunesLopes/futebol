@@ -1,0 +1,22 @@
+{
+  "name": "FutebolCompetitiveTests",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      },
+      "DevPackages": {
+        "$path": "DevPackages"
+      },
+      "Tests": {
+        "$path": "src/tests"
+      }
+    },
+    "ServerScriptService": {
+      "TestRunner": {
+        "$path": "src/TestRunner.server.luau"
+      }
+    }
+  }
+}

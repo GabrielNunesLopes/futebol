@@ -1,0 +1,11 @@
+Packages/
+ServerPackages/
+DevPackages/
+futebol.rbxlx
+futebol-tests.rbxlx
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+.DS_Store
+Thumbs.db
