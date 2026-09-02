@@ -37,8 +37,10 @@ function BallMath.reflectVelocity(velocity: Vector3, normal: Vector3, restitutio
 		return VectorMath.clampMagnitudeXZ(v, PhysicsConfig.Ball.MaxSpeed)
 	end
 
-	local reflected = v - 2 * v:Dot(n) * n
-	return VectorMath.clampMagnitudeXZ(reflected * math.clamp(restitution, 0, 1), PhysicsConfig.Ball.MaxSpeed)
+	local e = math.clamp(restitution, 0, 1)
+	local normalSpeed = v:Dot(n)
+	local reflected = v - (1 + e) * normalSpeed * n
+	return VectorMath.clampMagnitudeXZ(reflected, PhysicsConfig.Ball.MaxSpeed)
 end
 
 return BallMath
