@@ -15,31 +15,39 @@ local MatchService = {}
 local arena: FieldService.ArenaRefs? = nil
 local machine = MatchState.new()
 local activePlayers: { Player } = {}
+local playerGoals: { [number]: number } = {}
 local running = false
 local snapshotAccumulator = 0
 local previousState = machine.State
+
+local function isActivePlayer(player: Player): boolean
+	return table.find(activePlayers, player) ~= nil
+end
 
 local function assignPlayers(players: { Player })
 	table.sort(players, function(a, b)
 		return a.UserId < b.UserId
 	end)
 	activePlayers = players
+	playerGoals = {}
 	for index, player in ipairs(activePlayers) do
 		player:SetAttribute("CompetitiveTeam", if index == 1 then "Blue" else "Red")
+		playerGoals[player.UserId] = 0
 	end
 end
 
 local function resetPositions()
-	if not arena then
+	local currentArena = arena
+	if not currentArena then
 		return
 	end
-	BallService.reset(arena.Center)
+	BallService.reset(currentArena.Center)
 
 	for _, player in ipairs(activePlayers) do
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") then
 			local team = player:GetAttribute("CompetitiveTeam")
-			local spawnPosition = if team == "Blue" then arena.BlueSpawn else arena.RedSpawn
+			local spawnPosition = if team == "Blue" then currentArena.BlueSpawn else currentArena.RedSpawn
 			root.AssemblyLinearVelocity = Vector3.zero
 			root.AssemblyAngularVelocity = Vector3.zero
 			root.CFrame = CFrame.lookAt(spawnPosition, Vector3.new(0, spawnPosition.Y, 0))
@@ -47,9 +55,16 @@ local function resetPositions()
 	end
 end
 
+function MatchService.getSnapshot()
+	local snapshot = machine:getSnapshot()
+	local payload: any = table.clone(snapshot)
+	payload.PlayerGoals = table.clone(playerGoals)
+	return payload
+end
+
 local function broadcastSnapshot()
 	local remote = Remotes.get("MatchSnapshot")
-	remote:FireAllClients(machine:getSnapshot())
+	remote:FireAllClients(MatchService.getSnapshot())
 end
 
 local function handleTransition(fromState: string, toState: string)
@@ -69,12 +84,30 @@ local function handleTransition(fromState: string, toState: string)
 	broadcastSnapshot()
 end
 
+local function stopToWaiting()
+	for _, player in ipairs(activePlayers) do
+		if player.Parent == Players then
+			player:SetAttribute("CompetitiveTeam", nil)
+		end
+	end
+	activePlayers = {}
+	playerGoals = {}
+	machine = MatchState.new()
+	previousState = machine.State
+	PlayerMotorService.freezeAll(true)
+	local currentArena = arena
+	if currentArena then
+		BallService.reset(currentArena.Center)
+	end
+	broadcastSnapshot()
+end
+
 function MatchService.configure(targetArena: FieldService.ArenaRefs)
 	arena = targetArena
 end
 
 function MatchService.start(players: { Player })
-	if #players < 2 then
+	if #players < 2 or machine.State ~= "Waiting" then
 		return false
 	end
 	assignPlayers({ players[1], players[2] })
@@ -87,6 +120,9 @@ function MatchService.start(players: { Player })
 end
 
 function MatchService.tryStartFromServer(): boolean
+	if machine.State ~= "Waiting" then
+		return false
+	end
 	local players = Players:GetPlayers()
 	if #players < 2 then
 		return false
@@ -94,19 +130,25 @@ function MatchService.tryStartFromServer(): boolean
 	return MatchService.start(players)
 end
 
-function MatchService.registerGoal(team: "Blue" | "Red")
+function MatchService.registerGoal(team: "Blue" | "Red", scorerUserId: number?)
 	if machine:goal(team) then
+		if scorerUserId then
+			local scorer = Players:GetPlayerByUserId(scorerUserId)
+			if scorer and scorer:GetAttribute("CompetitiveTeam") == team then
+				playerGoals[scorerUserId] = (playerGoals[scorerUserId] or 0) + 1
+			end
+		end
 		handleTransition(previousState, machine.State)
 		previousState = machine.State
 	end
 end
 
-function MatchService.getSnapshot()
-	return machine:getSnapshot()
-end
-
 function MatchService.isActive(): boolean
 	return machine.State == "Playing" or machine.State == "Overtime"
+end
+
+function MatchService.hasMatch(): boolean
+	return machine.State ~= "Waiting" and machine.State ~= "Finished"
 end
 
 function MatchService.startLoop()
@@ -114,6 +156,12 @@ function MatchService.startLoop()
 		return
 	end
 	running = true
+
+	Players.PlayerRemoving:Connect(function(player)
+		if isActivePlayer(player) then
+			stopToWaiting()
+		end
+	end)
 
 	RunService.Heartbeat:Connect(function(dt)
 		local before = machine.State
