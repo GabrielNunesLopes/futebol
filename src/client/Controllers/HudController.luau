@@ -1,6 +1,7 @@
 --!strict
 
 local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -9,6 +10,7 @@ local Remotes = require(ReplicatedStorage.Shared.Network.Remotes)
 local HudController = {}
 local localPlayer = Players.LocalPlayer
 local running = false
+local latestPlayerGoals: { [number]: number } = {}
 
 local function corner(radius: number): UICorner
 	local ui = Instance.new("UICorner")
@@ -36,11 +38,25 @@ local function formatTime(seconds: number): string
 	return string.format("%d:%02d", math.floor(total / 60), total % 60)
 end
 
+local function safePingMs(player: Player): string
+	local ok, value = pcall(function()
+		return player:GetNetworkPing()
+	end)
+	if not ok or typeof(value) ~= "number" then
+		return "--"
+	end
+	return tostring(math.floor(value * 2000 + 0.5))
+end
+
 function HudController.start()
 	if running then
 		return
 	end
 	running = true
+
+	pcall(function()
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+	end)
 
 	local playerGui = localPlayer:WaitForChild("PlayerGui")
 	local old = playerGui:FindFirstChild("CompetitiveHUD")
@@ -83,7 +99,7 @@ function HudController.start()
 	scoreboard.Name = "Scoreboard"
 	scoreboard.AnchorPoint = Vector2.new(0.5, 0.5)
 	scoreboard.Position = UDim2.fromScale(0.5, 0.5)
-	scoreboard.Size = UDim2.fromOffset(560, 330)
+	scoreboard.Size = UDim2.fromOffset(600, 330)
 	scoreboard.BackgroundColor3 = Color3.fromRGB(12, 14, 19)
 	scoreboard.BackgroundTransparency = 0.04
 	scoreboard.Visible = false
@@ -110,8 +126,9 @@ function HudController.start()
 		end
 		for _, player in ipairs(Players:GetPlayers()) do
 			local teamName = player:GetAttribute("CompetitiveTeam") or "—"
-			local pingMs = math.floor(player:GetNetworkPing() * 2000 + 0.5)
-			local row = textLabel(rows, player.Name, string.format("%-18s   %s   Ping %d ms", player.DisplayName, teamName, pingMs), UDim2.new(1, 0, 0, 48), UDim2.new(), 17)
+			local goals = latestPlayerGoals[player.UserId] or 0
+			local rowText = string.format("%-18s   %-5s   Gols %d   Ping %s ms", player.DisplayName, tostring(teamName), goals, safePingMs(player))
+			local row = textLabel(rows, player.Name, rowText, UDim2.new(1, 0, 0, 48), UDim2.new(), 17)
 			row.BackgroundTransparency = 0.65
 			row.BackgroundColor3 = Color3.fromRGB(30, 34, 44)
 			row.TextXAlignment = Enum.TextXAlignment.Left
@@ -119,10 +136,7 @@ function HudController.start()
 		end
 	end
 
-	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed then
-			return
-		end
+	UserInputService.InputBegan:Connect(function(input)
 		if input.KeyCode == Enum.KeyCode.Tab then
 			rebuildRows()
 			scoreboard.Visible = true
@@ -142,6 +156,9 @@ function HudController.start()
 		blue.Text = tostring(snapshot.BlueScore or 0)
 		red.Text = tostring(snapshot.RedScore or 0)
 		timer.Text = formatTime(snapshot.TimeRemaining or 0)
+		if typeof(snapshot.PlayerGoals) == "table" then
+			latestPlayerGoals = snapshot.PlayerGoals
+		end
 
 		local matchState = tostring(snapshot.State or "Waiting")
 		state.Text = string.upper(matchState)
